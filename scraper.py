@@ -9,12 +9,14 @@ scraper.py
 5. save_page_as_pdf                : CDP 기반 PDF 저장
 """
 
+from __future__ import annotations
 import base64
 import datetime
 import os
 import random
 import re
 import time
+from typing import Tuple, List, Dict # 구버전 호환용
 
 import pandas as pd
 from bs4 import BeautifulSoup
