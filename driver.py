@@ -62,12 +62,16 @@ def login_with_cookie(driver: webdriver.Chrome) -> Optional[webdriver.Chrome]:
         except Exception:
             pass
 
-    driver.refresh()
-    time.sleep(2)
+    # 2. [강화된 검증] 단순히 새로고침만 하지 않고, 실제 권한이 필요한 주소로 바로 이동해봅니다.
+    test_url = Config.ACCEPT_URL.replace("PAGE_NUM", "1")
+    print(f"[로그인] 권한 검증을 위해 대상 페이지로 이동합니다...")
+    driver.get(test_url)
+    time.sleep(3)
 
+    # 3. 만약 이동했는데도 다시 로그인 주소로 튕겨있다면 실패로 처리
     if "login" in driver.current_url.lower():
-        print("[로그인] ❌ 쿠키가 만료되었습니다.")
+        print(f"[로그인] ❌ 쿠키가 거절되었습니다. 다시 구워야 합니다.")
         return None
 
-    print("[로그인] ✅ 쿠키 로그인 성공!")
+    print("[로그인] ✅ 최종 권한 획득 성공!")
     return driver
