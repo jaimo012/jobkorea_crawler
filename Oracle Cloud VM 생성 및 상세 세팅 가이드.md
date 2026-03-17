@@ -37,7 +37,7 @@
 
 1.  **SSH 접속 명령어**: 내 컴퓨터의 `ssh-key.key` 파일 경로를 포함하여 접속합니다.
     ```bash
-    ssh -i "C:\Users\jaimo\OneDrive\Desktop\개발자원\오라클\ssh-key.key" ubuntu@158.179.162.168
+    ssh -i "C:\Users\jaimo\OneDrive\Desktop\개발자원\오라클\ssh-key.key" ubuntu@{Public IP}
     ```
 2.  **시스템 업데이트 및 필수 도구 설치**:
     ```bash
