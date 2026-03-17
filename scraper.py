@@ -26,6 +26,8 @@ from config import Config
 from google_services import upload_file_to_drive, make_drive_url
 from ocr import extract_text_from_base64
 
+from utils_debug import save_debug_snapshot
+
 
 # ──────────────────────────────────────────────
 # 1. 수락 후보자 목록 전체 수집
@@ -50,14 +52,16 @@ def scrape_all_accepted_candidates(
         target_url = Config.ACCEPT_URL.replace("PAGE_NUM", str(page_num))
         print(f"\n[크롤러] 👉 {page_num}페이지 이동 중...")
         driver.get(target_url)
-        time.sleep(random.uniform(2.0, 3.5))
+        time.sleep(random.uniform(3.0, 5.0))
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
 
         # ── 페이지 유효성 검사 ──────────────────
         current_page_tag = soup.find("span", class_="now")
         if not current_page_tag:
-            print("[크롤러] 🛑 페이지 번호를 찾을 수 없어 종료합니다.")
+            # [추가] 페이지를 못 찾으면 즉시 사진을 찍습니다!
+            print(f"[크롤러] 🛑 페이지 번호를 찾을 수 없습니다. (현재 URL: {driver.current_url})")
+            save_debug_snapshot(driver, f"page_error_p{page_num}")
             break
 
         if current_page_tag.text.strip() != str(page_num):
