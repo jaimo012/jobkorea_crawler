@@ -1,0 +1,12 @@
+selenium
+webdriver-manager
+beautifulsoup4
+pandas
+gspread
+google-api-python-client
+google-auth
+pytesseract
+Pillow
+requests
+python-dotenv
+pyperclip
