@@ -4,7 +4,7 @@ main.py
 
 실행 흐름:
     1. Chrome WebDriver 초기화 (1회)
-    2. 로그인 보장 (쿠키 → ID/PW + 2FA 자동)
+    2. 로그인 보장 (ID/PW + 2FA 자동)
     3. 워킹타임(08:00~18:00) 동안 매 10분마다 크롤링 사이클 실행
     4. 매일 BROWSER_RESTART_HOUR 에 브라우저 재시작
     5. 워킹타임 외에는 대기 (브라우저 세션은 유지)
@@ -18,7 +18,7 @@ import time
 import traceback
 
 from config import Config
-from driver import setup_chrome_driver, ensure_login, refresh_cookies, is_logged_in
+from driver import setup_chrome_driver, ensure_login, is_logged_in
 from pipeline import process_and_upload_candidates, update_empty_resumes_in_sheet
 from scraper import scrape_all_accepted_candidates
 
@@ -105,9 +105,6 @@ def _run_crawl_cycle() -> None:
         # 상세 정보 업데이트
         update_empty_resumes_in_sheet(_driver)
 
-        # 쿠키 갱신 (만료 방지)
-        refresh_cookies(_driver)
-
         elapsed = (_now() - cycle_start).total_seconds()
         print(f"\n[스케줄러] 사이클 완료 (소요: {elapsed:.0f}초)")
 
@@ -157,7 +154,6 @@ def _graceful_shutdown(signum, frame):
     print("\n[스케줄러] 종료 신호 수신 — 정리 중...")
     if _driver:
         try:
-            refresh_cookies(_driver)
             _driver.quit()
         except Exception:
             pass
@@ -190,7 +186,6 @@ def main() -> None:
             # 대기 중 브라우저 종료 (리소스 절약)
             if _driver:
                 try:
-                    refresh_cookies(_driver)
                     _driver.quit()
                 except Exception:
                     pass

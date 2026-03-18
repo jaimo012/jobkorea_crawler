@@ -19,9 +19,6 @@ class Config:
     SHEET_NAME      = os.getenv('GOOGLE_SHEET_NAME', 'RAW')
     DRIVE_FOLDER_ID = os.getenv('GOOGLE_DRIVE_FOLDER_ID')
 
-    # ── 쿠키 파일 경로 ────────────────────────────
-    COOKIE_FILE = os.getenv('COOKIE_FILE', 'jobkorea_cookies.pkl')
-
     # ── Tesseract 경로 ────────────────────────────
     # Windows: C:\Program Files\Tesseract-OCR\tesseract.exe
     # Linux  : /usr/bin/tesseract

@@ -1,30 +1,26 @@
 """
 driver.py
-Chrome WebDriver 세팅 · 쿠키/자격증명 로그인 · 2FA 자동 처리를 담당합니다.
+Chrome WebDriver 세팅 · ID/PW 로그인 · 2FA 자동 처리를 담당합니다.
 (Python 3.8 호환성을 위해 __future__ import 추가)
 
 2FA 흐름:
     1. ID/PW 로그인 후 2FA 페이지 감지
-    2. GAS가 지메일에서 자동 수집한 인증코드를 '2차인증' 시트에서 폴링
+    2. 이름/이메일 입력 → 인증코드 발송 요청
+    3. GAS가 지메일에서 자동 수집한 인증코드를 '2차인증' 시트에서 폴링
        (컬럼: 수신일시 | 메시지ID | 인증코드)
-    3. 로그인 시점 이후에 수신된 마지막 인증코드를 사용
-    4. 인증코드를 자동 입력하여 로그인 완료
-    5. 쿠키 저장 (다음 실행 시 재활용)
+    4. 로그인 시점 이후에 수신된 마지막 인증코드를 사용
+    5. 인증코드를 자동 입력하여 로그인 완료
 """
 from __future__ import annotations
 
 import datetime
-import os
-import pickle
 import random
 import time
-from typing import Optional
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
 from config import Config
@@ -73,21 +69,21 @@ def is_logged_in(driver: webdriver.Chrome) -> bool:
         test_url = Config.ACCEPT_URL.replace("PAGE_NUM", "1")
         driver.get(test_url)
         time.sleep(3)
-        return "login" not in driver.current_url.lower()
+        url = driver.current_url.lower()
+        return "login" not in url and "twofactorauth" not in url
     except Exception:
         return False
 
 
 # ──────────────────────────────────────────────
-# 통합 로그인 (쿠키 → 자격증명+2FA 폴백)
+# 통합 로그인 (ID/PW + 2FA 자동 인증)
 # ──────────────────────────────────────────────
 
 def ensure_login(driver: webdriver.Chrome) -> webdriver.Chrome:
     """
     로그인을 보장합니다. 순서:
         1. 이미 로그인 상태면 패스
-        2. 쿠키 로그인 시도
-        3. 실패 시 ID/PW + 2FA 자동 인증
+        2. ID/PW + 2FA 자동 인증
     성공 시 driver 반환, 실패 시 예외를 발생시킵니다.
     """
     # 1) 이미 로그인 상태 확인
@@ -95,57 +91,13 @@ def ensure_login(driver: webdriver.Chrome) -> webdriver.Chrome:
         print("[로그인] 기존 세션 유효 — 로그인 생략")
         return driver
 
-    # 2) 쿠키 로그인 시도
-    if _try_cookie_login(driver):
-        print("[로그인] ✅ 쿠키 로그인 성공!")
-        return driver
-
-    # 3) ID/PW 로그인 + 2FA
-    print("[로그인] 쿠키 로그인 실패 → ID/PW 로그인을 시도합니다...")
+    # 2) ID/PW 로그인 + 2FA
+    print("[로그인] ID/PW 로그인을 시도합니다...")
     if _login_with_credentials(driver):
-        _save_cookies(driver)
-        print("[로그인] ✅ ID/PW 로그인 성공! 쿠키 저장 완료")
+        print("[로그인] ✅ 로그인 성공!")
         return driver
 
-    raise RuntimeError("[로그인] 모든 로그인 방법이 실패했습니다.")
-
-
-# ──────────────────────────────────────────────
-# 쿠키 로그인
-# ──────────────────────────────────────────────
-
-def _try_cookie_login(driver: webdriver.Chrome) -> bool:
-    """저장된 쿠키 파일로 로그인을 시도합니다."""
-    cookie_path = Config.COOKIE_FILE
-
-    if not os.path.exists(cookie_path):
-        print(f"[로그인] 쿠키 파일({cookie_path})이 없습니다.")
-        return False
-
-    print("[로그인] 쿠키 파일을 불러옵니다...")
-    driver.get("https://www.jobkorea.co.kr")
-    time.sleep(2)
-
-    with open(cookie_path, "rb") as f:
-        cookies = pickle.load(f)
-
-    for cookie in cookies:
-        try:
-            driver.add_cookie(cookie)
-        except Exception:
-            pass
-
-    # 강화된 검증: 실제 권한이 필요한 페이지로 이동하여 확인
-    test_url = Config.ACCEPT_URL.replace("PAGE_NUM", "1")
-    print("[로그인] 권한 검증을 위해 대상 페이지로 이동합니다...")
-    driver.get(test_url)
-    time.sleep(3)
-
-    if "login" in driver.current_url.lower():
-        print("[로그인] ❌ 쿠키가 만료되었습니다.")
-        return False
-
-    return True
+    raise RuntimeError("[로그인] 로그인에 실패했습니다.")
 
 
 # ──────────────────────────────────────────────
@@ -190,7 +142,8 @@ def _login_with_credentials(driver: webdriver.Chrome) -> bool:
         return _handle_2fa(driver)
 
     # 2FA 없이 바로 로그인 성공
-    if "login" not in driver.current_url.lower():
+    url = driver.current_url.lower()
+    if "login" not in url and "twofactorauth" not in url:
         return True
 
     print("[로그인] ❌ ID/PW 로그인 실패 — 아이디/비밀번호를 확인하세요.")
@@ -205,7 +158,7 @@ def _is_2fa_page(driver: webdriver.Chrome) -> bool:
     url = driver.current_url.lower()
 
     # URL 기반 판별
-    if any(kw in url for kw in ("auth", "verify", "cert", "2fa", "otp")):
+    if any(kw in url for kw in ("twofactorauth", "auth", "verify", "cert", "2fa", "otp")):
         return True
 
     # 페이지 내 인증코드 입력란 존재 여부
@@ -273,118 +226,46 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
 
 def _fill_2fa_identity(driver: webdriver.Chrome) -> bool:
     """
-    2FA 페이지에서 이름과 이메일을 입력하고 인증코드 발송 버튼을 누릅니다.
+    잡코리아 2FA 페이지에서 이름과 이메일을 입력하고 인증코드 발송 버튼을 누릅니다.
 
-    ※ 잡코리아 2FA 페이지의 실제 input/button selector에 맞게 수정하세요.
+    잡코리아 2FA 페이지 구조:
+        - input#UserName  : 이름 입력
+        - input#UserEmail : 이메일 전체 주소 입력 (예: alpha@kmong.com)
+        - button#btnSendCertCorpDomain : 인증번호 발송 (이름/이메일 입력 후 enabled)
     """
     try:
         print(f"[2FA] 이름({Config.AUTH_NAME}) / 이메일({Config.AUTH_EMAIL}) 입력 중...")
 
-        # 이름 입력 (여러 가능한 selector 시도)
-        name_input = None
-        for selector in [
-            'input[name="name"]',
-            'input[name="userName"]',
-            'input[name="realName"]',
-            'input[placeholder*="이름"]',
-            'input[placeholder*="성명"]',
-        ]:
-            try:
-                name_input = driver.find_element(By.CSS_SELECTOR, selector)
-                if name_input.is_displayed():
-                    break
-                name_input = None
-            except Exception:
-                continue
+        # 이름 입력
+        name_input = driver.find_element(By.ID, "UserName")
+        name_input.clear()
+        name_input.send_keys(Config.AUTH_NAME)
+        time.sleep(0.5)
+        print("[2FA] 이름 입력 완료")
 
-        if name_input:
-            name_input.clear()
-            name_input.send_keys(Config.AUTH_NAME)
-            time.sleep(0.3)
-            print("[2FA] 이름 입력 완료")
-        else:
-            print("[2FA] 이름 입력 필드를 찾을 수 없습니다 (건너뜀)")
+        # 이메일 입력
+        email_input = driver.find_element(By.ID, "UserEmail")
+        email_input.clear()
+        email_input.send_keys(Config.AUTH_EMAIL)
+        time.sleep(0.5)
+        print("[2FA] 이메일 입력 완료")
 
-        # 이메일 입력 (여러 가능한 selector 시도)
-        email_input = None
-        for selector in [
-            'input[name="email"]',
-            'input[name="userEmail"]',
-            'input[name="mail"]',
-            'input[type="email"]',
-            'input[placeholder*="이메일"]',
-            'input[placeholder*="메일"]',
-            'input[placeholder*="email"]',
-        ]:
-            try:
-                email_input = driver.find_element(By.CSS_SELECTOR, selector)
-                if email_input.is_displayed():
-                    break
-                email_input = None
-            except Exception:
-                continue
+        # disabled 해제 대기 후 인증번호 발송 버튼 클릭
+        time.sleep(1)
+        send_btn = driver.find_element(By.ID, "btnSendCertCorpDomain")
 
-        if email_input:
-            email_input.clear()
-            email_input.send_keys(Config.AUTH_EMAIL)
-            time.sleep(0.3)
-            print("[2FA] 이메일 입력 완료")
-        else:
-            print("[2FA] 이메일 입력 필드를 찾을 수 없습니다 (건너뜀)")
+        # disabled 속성 제거를 위해 JavaScript로 클릭
+        if send_btn.get_attribute("disabled"):
+            print("[2FA] 발송 버튼이 비활성화 상태 — JavaScript로 활성화 시도...")
+            driver.execute_script(
+                "arguments[0].disabled = false; arguments[0].classList.remove('disabled');",
+                send_btn,
+            )
+            time.sleep(0.5)
 
-        # 인증코드 발송 버튼 클릭
-        send_btn = None
-        for selector in [
-            'button.btn-send',
-            'button[class*="send"]',
-            'button[class*="cert"]',
-            'button[class*="auth"]',
-            'a.btn-send',
-            'a[class*="send"]',
-            'input[type="button"][value*="발송"]',
-            'input[type="button"][value*="인증"]',
-            'button[type="button"]',
-        ]:
-            try:
-                btn = driver.find_element(By.CSS_SELECTOR, selector)
-                btn_text = btn.text.strip() if btn.text else ""
-                btn_value = btn.get_attribute("value") or ""
-                if btn.is_displayed() and any(
-                    kw in btn_text + btn_value
-                    for kw in ("발송", "인증", "전송", "보내", "확인", "send")
-                ):
-                    send_btn = btn
-                    break
-            except Exception:
-                continue
-
-        # 텍스트 기반 버튼 검색 (위에서 못 찾은 경우)
-        if send_btn is None:
-            try:
-                buttons = driver.find_elements(By.TAG_NAME, "button")
-                for btn in buttons:
-                    if btn.is_displayed() and any(
-                        kw in btn.text for kw in ("발송", "인증", "전송", "보내")
-                    ):
-                        send_btn = btn
-                        break
-            except Exception:
-                pass
-
-        if send_btn:
-            send_btn.click()
-            print(f"[2FA] 인증코드 발송 버튼 클릭 완료 (버튼: {send_btn.text.strip()})")
-            time.sleep(3)
-        else:
-            # 발송 버튼을 못 찾으면 Enter 키로 시도
-            print("[2FA] 발송 버튼을 찾을 수 없어 Enter 키로 시도합니다...")
-            target = email_input or name_input
-            if target:
-                target.send_keys(Keys.RETURN)
-                time.sleep(3)
-            else:
-                print("[2FA] ❌ 입력 필드도 버튼도 찾을 수 없습니다.")
-                return False
+        send_btn.click()
+        print("[2FA] 인증번호 발송 버튼 클릭 완료")
+        time.sleep(3)
 
         return True
 
@@ -479,63 +360,29 @@ def _poll_otp_from_sheet(otp_ws, login_time: datetime.datetime) -> str:
 
 def _submit_otp(driver: webdriver.Chrome, otp_code: str) -> bool:
     """
-    2FA 페이지에서 인증코드를 입력하고 확인 버튼을 누릅니다.
-    ※ 잡코리아 2FA 페이지의 실제 input/button selector에 맞게 수정하세요.
+    잡코리아 2FA 페이지에서 인증코드를 입력하고 인증 버튼을 누릅니다.
+
+    잡코리아 2FA 페이지 구조:
+        - input#certNumCorpDomain : 인증번호 숫자 6자리 입력
+        - button#btnCorpDomainCheckCert : 인증 버튼
     """
     try:
-        # 인증코드 입력 필드 찾기
-        otp_input = None
-        for selector in [
-            'input[name="certNo"]',
-            'input[name="authNo"]',
-            'input[name="otp"]',
-            'input[type="text"][maxlength]',
-            'input[type="number"]',
-        ]:
-            try:
-                otp_input = driver.find_element(By.CSS_SELECTOR, selector)
-                if otp_input.is_displayed():
-                    break
-                otp_input = None
-            except Exception:
-                continue
-
-        if otp_input is None:
-            print("[2FA] ❌ 인증코드 입력 필드를 찾을 수 없습니다. selector를 확인하세요.")
-            return False
-
+        otp_input = driver.find_element(By.ID, "certNumCorpDomain")
         otp_input.clear()
         otp_input.send_keys(otp_code)
         time.sleep(0.5)
+        print(f"[2FA] 인증코드 입력 완료: {otp_code}")
 
-        # 확인 버튼 클릭
-        submit_btn = None
-        for selector in [
-            'button[type="submit"]',
-            'button.btn-confirm',
-            'button.btn-primary',
-            'input[type="submit"]',
-            'a.btn-confirm',
-        ]:
-            try:
-                submit_btn = driver.find_element(By.CSS_SELECTOR, selector)
-                if submit_btn.is_displayed():
-                    break
-                submit_btn = None
-            except Exception:
-                continue
-
-        if submit_btn:
-            submit_btn.click()
-        else:
-            otp_input.send_keys(Keys.RETURN)
-
+        submit_btn = driver.find_element(By.ID, "btnCorpDomainCheckCert")
+        submit_btn.click()
+        print("[2FA] 인증 버튼 클릭 완료")
         time.sleep(3)
 
-        if "login" not in driver.current_url.lower():
+        url = driver.current_url.lower()
+        if "login" not in url and "twofactorauth" not in url:
             return True
 
-        print("[2FA] ❌ 인증코드 입력 후에도 로그인 페이지에 남아있습니다.")
+        print("[2FA] ❌ 인증코드 입력 후에도 인증 페이지에 남아있습니다.")
         return False
 
     except Exception as e:
@@ -543,19 +390,3 @@ def _submit_otp(driver: webdriver.Chrome, otp_code: str) -> bool:
         return False
 
 
-# ──────────────────────────────────────────────
-# 쿠키 저장/갱신
-# ──────────────────────────────────────────────
-
-def _save_cookies(driver: webdriver.Chrome) -> None:
-    """현재 브라우저 세션의 쿠키를 파일로 저장합니다."""
-    cookies = driver.get_cookies()
-    with open(Config.COOKIE_FILE, "wb") as f:
-        pickle.dump(cookies, f)
-    print(f"[로그인] 쿠키 {len(cookies)}개 저장 → {Config.COOKIE_FILE}")
-
-
-def refresh_cookies(driver: webdriver.Chrome) -> None:
-    """세션이 살아있는 동안 쿠키를 갱신하여 만료를 방지합니다."""
-    if is_logged_in(driver):
-        _save_cookies(driver)

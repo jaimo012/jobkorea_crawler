@@ -5,9 +5,9 @@ title 잡코리아 크롤러 관리
 REM ──────────────────────────────────────────────
 REM  설정: 아래 값을 본인 환경에 맞게 수정하세요
 REM ──────────────────────────────────────────────
-set SSH_KEY=C:\Users\jaimo\OneDrive\Desktop\개발자원\오라클\ssh-key.key
+set SSH_KEY=C:\Users\jaimo\OneDrive\Desktop\개발자원\오라클\ssh-key-2026-03-17.key
 set SERVER_USER=ubuntu
-set SERVER_IP=여기에_공인IP_입력
+set SERVER_IP=158.179.162.168
 set PROJECT_DIR=/home/ubuntu/jobkorea_crawler
 set SERVICE_NAME=jobkorea-crawler
 
