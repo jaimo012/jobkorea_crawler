@@ -1,0 +1,19 @@
+[Unit]
+Description=Jobkorea Crawler - 잡코리아 자동 크롤러
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/jobkorea_crawler
+ExecStart=/usr/bin/python3 /home/ubuntu/jobkorea_crawler/main.py
+Restart=on-failure
+RestartSec=30
+StandardOutput=append:/home/ubuntu/jobkorea_crawler/crawler.log
+StandardError=append:/home/ubuntu/jobkorea_crawler/crawler.log
+
+# 환경변수 파일 로드
+EnvironmentFile=-/home/ubuntu/jobkorea_crawler/.env
+
+[Install]
+WantedBy=multi-user.target
