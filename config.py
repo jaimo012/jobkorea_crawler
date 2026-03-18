@@ -30,6 +30,10 @@ class Config:
     # ── 임시 파일 저장 경로 ───────────────────────
     TEMP_DIR = 'temp_files'
 
+    # ── 2FA 본인인증 정보 ─────────────────────────
+    AUTH_NAME   = os.getenv('AUTH_NAME', '이재모')
+    AUTH_EMAIL  = os.getenv('AUTH_EMAIL', 'alpha@kmong.com')
+
     # ── OTP 인증 (Google Sheets 경유) ────────────
     # GAS가 지메일에서 인증코드를 자동 수집하는 시트
     OTP_SHEET_URL       = os.getenv(

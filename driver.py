@@ -234,22 +234,27 @@ def _is_2fa_page(driver: webdriver.Chrome) -> bool:
 def _handle_2fa(driver: webdriver.Chrome) -> bool:
     """
     2FA 흐름:
-        1. 로그인 버튼 클릭 시점을 기록
+        1. 이름/이메일 입력 → 인증코드 발송 요청
         2. GAS가 지메일에서 자동 수집한 '2차인증' 시트를 폴링
         3. 로그인 시점 이후에 수신된 마지막 인증코드를 가져옴
         4. 인증코드를 페이지에 입력하고 인증 완료
     """
+    # ── Step 1. 이름/이메일 입력 + 인증코드 발송 요청 ──
+    if not _fill_2fa_identity(driver):
+        print("[2FA] ❌ 이름/이메일 입력 또는 인증코드 발송 요청 실패")
+        return False
+
+    # 인증코드 발송 시점 기록 (이메일 발송 직후)
     login_time = datetime.datetime.now()
-    print(f"[2FA] 로그인 시점: {login_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"[2FA] 인증코드 발송 요청 완료 — 발송 시점: {login_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"[2FA] GAS가 지메일에서 인증코드를 수집할 때까지 대기합니다... (제한시간: {Config.OTP_TIMEOUT}초)")
 
-    # OTP 시트 열기
+    # ── Step 2. OTP 시트에서 인증코드 폴링 ──
     otp_ws = _get_otp_worksheet()
     if otp_ws is None:
         print("[2FA] ❌ OTP 시트를 열 수 없습니다.")
         return False
 
-    # 폴링: 로그인 시점 이후의 인증코드가 나타날 때까지 대기
     otp_code = _poll_otp_from_sheet(otp_ws, login_time)
 
     if not otp_code:
@@ -258,12 +263,134 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
 
     print(f"[2FA] 인증코드 수신: {otp_code}")
 
-    # 인증코드 입력
+    # ── Step 3. 인증코드 입력 ──
     if not _submit_otp(driver, otp_code):
         return False
 
     print("[2FA] ✅ 2단계 인증 완료!")
     return True
+
+
+def _fill_2fa_identity(driver: webdriver.Chrome) -> bool:
+    """
+    2FA 페이지에서 이름과 이메일을 입력하고 인증코드 발송 버튼을 누릅니다.
+
+    ※ 잡코리아 2FA 페이지의 실제 input/button selector에 맞게 수정하세요.
+    """
+    try:
+        print(f"[2FA] 이름({Config.AUTH_NAME}) / 이메일({Config.AUTH_EMAIL}) 입력 중...")
+
+        # 이름 입력 (여러 가능한 selector 시도)
+        name_input = None
+        for selector in [
+            'input[name="name"]',
+            'input[name="userName"]',
+            'input[name="realName"]',
+            'input[placeholder*="이름"]',
+            'input[placeholder*="성명"]',
+        ]:
+            try:
+                name_input = driver.find_element(By.CSS_SELECTOR, selector)
+                if name_input.is_displayed():
+                    break
+                name_input = None
+            except Exception:
+                continue
+
+        if name_input:
+            name_input.clear()
+            name_input.send_keys(Config.AUTH_NAME)
+            time.sleep(0.3)
+            print("[2FA] 이름 입력 완료")
+        else:
+            print("[2FA] 이름 입력 필드를 찾을 수 없습니다 (건너뜀)")
+
+        # 이메일 입력 (여러 가능한 selector 시도)
+        email_input = None
+        for selector in [
+            'input[name="email"]',
+            'input[name="userEmail"]',
+            'input[name="mail"]',
+            'input[type="email"]',
+            'input[placeholder*="이메일"]',
+            'input[placeholder*="메일"]',
+            'input[placeholder*="email"]',
+        ]:
+            try:
+                email_input = driver.find_element(By.CSS_SELECTOR, selector)
+                if email_input.is_displayed():
+                    break
+                email_input = None
+            except Exception:
+                continue
+
+        if email_input:
+            email_input.clear()
+            email_input.send_keys(Config.AUTH_EMAIL)
+            time.sleep(0.3)
+            print("[2FA] 이메일 입력 완료")
+        else:
+            print("[2FA] 이메일 입력 필드를 찾을 수 없습니다 (건너뜀)")
+
+        # 인증코드 발송 버튼 클릭
+        send_btn = None
+        for selector in [
+            'button.btn-send',
+            'button[class*="send"]',
+            'button[class*="cert"]',
+            'button[class*="auth"]',
+            'a.btn-send',
+            'a[class*="send"]',
+            'input[type="button"][value*="발송"]',
+            'input[type="button"][value*="인증"]',
+            'button[type="button"]',
+        ]:
+            try:
+                btn = driver.find_element(By.CSS_SELECTOR, selector)
+                btn_text = btn.text.strip() if btn.text else ""
+                btn_value = btn.get_attribute("value") or ""
+                if btn.is_displayed() and any(
+                    kw in btn_text + btn_value
+                    for kw in ("발송", "인증", "전송", "보내", "확인", "send")
+                ):
+                    send_btn = btn
+                    break
+            except Exception:
+                continue
+
+        # 텍스트 기반 버튼 검색 (위에서 못 찾은 경우)
+        if send_btn is None:
+            try:
+                buttons = driver.find_elements(By.TAG_NAME, "button")
+                for btn in buttons:
+                    if btn.is_displayed() and any(
+                        kw in btn.text for kw in ("발송", "인증", "전송", "보내")
+                    ):
+                        send_btn = btn
+                        break
+            except Exception:
+                pass
+
+        if send_btn:
+            send_btn.click()
+            print(f"[2FA] 인증코드 발송 버튼 클릭 완료 (버튼: {send_btn.text.strip()})")
+            time.sleep(3)
+        else:
+            # 발송 버튼을 못 찾으면 Enter 키로 시도
+            print("[2FA] 발송 버튼을 찾을 수 없어 Enter 키로 시도합니다...")
+            target = email_input or name_input
+            if target:
+                target.send_keys(Keys.RETURN)
+                time.sleep(3)
+            else:
+                print("[2FA] ❌ 입력 필드도 버튼도 찾을 수 없습니다.")
+                return False
+
+        return True
+
+    except Exception as e:
+        print(f"[2FA] ❌ 이름/이메일 입력 오류: {e}")
+        return False
 
 
 def _get_otp_worksheet():
