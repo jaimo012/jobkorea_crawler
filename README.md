@@ -1,90 +1,116 @@
-# 🚀 잡코리아 후보자 자동화 파이프라인
+# 잡코리아 후보자 자동화 파이프라인
 
 잡코리아 제안 수락 후보자 정보를 자동 수집하여 Google Sheets / Drive에 동기화하는 크롤러입니다.
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```
 jobkorea_crawler/
-├── main.py              # 서버 실행 진입점 (Cron 등록 대상)
-├── save_cookies.py      # 【로컬 전용】 2단계 인증 처리 + 쿠키 저장
-│
+├── main.py              # 상시 실행 스케줄러 (systemd 서비스)
 ├── config.py            # 환경변수 기반 설정 관리
-├── driver.py            # Chrome WebDriver 초기화 + 쿠키 로그인
+├── driver.py            # Chrome WebDriver 초기화 + ID/PW 로그인 + 2FA 자동 처리
 ├── scraper.py           # 잡코리아 크롤링 핵심 로직
 ├── pipeline.py          # 데이터 가공 + Google Sheets 동기화
 ├── google_services.py   # Google Sheets / Drive API 연동
 ├── ocr.py               # Tesseract OCR 유틸리티
 │
+├── deploy/
+│   ├── jobkorea-crawler.service  # systemd 서비스 파일
+│   ├── setup_service.sh          # 서비스 등록 스크립트
+│   ├── 크롤러_관리.bat            # Windows 원클릭 관리 메뉴
+│   ├── 크롤러_시작.bat            # Windows 원클릭 시작
+│   └── 크롤러_상태확인.bat        # Windows 원클릭 상태 확인
+│
 ├── .env.example         # 환경변수 예시 파일
-├── .gitignore           # GitHub 업로드 제외 파일 목록
-├── requirements.txt     # Python 패키지 목록
+├── .gitignore
+├── requirements.txt
 └── README.md
 ```
 
-## ⚙️ 처음 세팅하기
+## 동작 방식
 
-### 1. 저장소 클론
+### 스케줄러 (main.py)
+- **워킹타임**: 매일 오전 8시 ~ 오후 6시 (KST)
+- **크롤링 주기**: 10분마다 자동 실행
+- **브라우저 관리**: 워킹타임 동안 브라우저 세션 유지, 매일 1회 재시작
+- **비워킹타임**: 브라우저 종료 후 대기, 다음 워킹타임 시작 시 자동 재개
+
+### 로그인 + 2FA 자동 인증 (driver.py)
+1. ID/PW로 잡코리아 기업회원 로그인
+2. 2FA 페이지 감지 시 자동 처리:
+   - 이름/이메일 입력 (`input#UserName`, `input#UserEmail`)
+   - 인증코드 발송 (`button#btnSendCertCorpDomain`)
+   - GAS가 지메일에서 자동 수집한 인증코드를 Google Sheets '2차인증' 시트에서 폴링
+   - 인증코드 입력 (`input#certNumCorpDomain`) + 인증 (`button#btnCorpDomainCheckCert`)
+
+### OTP 자동 수집 (GAS)
+- Google Apps Script가 매 1분마다 지메일에서 잡코리아 인증코드를 수집
+- '2차인증' 시트에 자동 기록 (컬럼: 수신일시 | 메시지ID | 인증코드)
+- OTP 시트 URL: config.py의 `OTP_SHEET_URL` 참조
+
+---
+
+## 서버 환경
+
+- **서버**: Oracle Cloud VM (Ubuntu 20.04, Python 3.8)
+- **IP**: 158.179.162.168
+- **프로젝트 경로**: `/home/ubuntu/jobkorea_crawler`
+- **서비스명**: `jobkorea-crawler` (systemd)
+- **타임존**: Asia/Seoul
+
+---
+
+## 세팅 가이드
+
+### 1. 저장소 클론 + 패키지 설치
 ```bash
-git clone https://github.com/내아이디/저장소이름.git
+git clone https://github.com/jaimo012/jobkorea_crawler.git
 cd jobkorea_crawler
-```
-
-### 2. 패키지 설치
-```bash
 pip install -r requirements.txt
 ```
 
-### 3. 환경변수 설정
+### 2. 환경변수 설정
 ```bash
 cp .env.example .env
 # .env 파일을 열어 실제 값 입력
 ```
 
-### 4. 민감 파일 준비 (GitHub에 없으므로 별도 전달)
+### 3. 필수 파일 준비 (GitHub에 없음)
 - `google_credentials.json` — Google Service Account 키 파일
-- `jobkorea_cookies.pkl`    — 로컬에서 save_cookies.py 실행 후 생성
+- `.env` — 환경변수 (잡코리아 계정, Google API 등)
 
----
-
-## 💻 로컬 PC — 쿠키 저장 (최초 1회 + 만료 시 갱신)
-
+### 4. 서버 서비스 등록 (최초 1회)
 ```bash
-# Windows 기준
-python save_cookies.py
-```
-
-1. 브라우저가 자동으로 열립니다
-2. 2단계 인증을 직접 완료합니다
-3. 터미널에서 Enter를 누릅니다
-4. `jobkorea_cookies.pkl` 파일이 생성됩니다
-5. 파일을 서버로 전송합니다:
-
-```bash
-scp -i ssh-key.pem jobkorea_cookies.pkl ubuntu@[서버IP]:~/crawler/
+sudo bash deploy/setup_service.sh
 ```
 
 ---
 
-## 🖥️ Oracle Cloud 서버 — 실행
+## 서버 관리
 
-### 수동 실행
-```bash
-cd ~/crawler
-python3 main.py
-```
+### Windows에서 원클릭 관리
+- `deploy/크롤러_관리.bat` — 시작/중지/재시작/상태확인/로그/배포 메뉴
+- `deploy/크롤러_시작.bat` — 원클릭 시작
+- `deploy/크롤러_상태확인.bat` — 원클릭 상태 확인
 
-### Cron 자동 실행 (매일 오전 9시)
+### SSH로 직접 관리
 ```bash
-crontab -e
-```
-```
-0 9 * * * cd /home/ubuntu/crawler && git pull && python3 main.py >> /home/ubuntu/logs/crawler.log 2>&1
+# 서비스 상태 확인
+sudo systemctl status jobkorea-crawler
+
+# 로그 확인
+tail -50 /home/ubuntu/jobkorea_crawler/crawler.log
+
+# 재시작
+sudo systemctl restart jobkorea-crawler
+
+# 코드 업데이트 + 재시작
+cd /home/ubuntu/jobkorea_crawler && git pull && sudo systemctl restart jobkorea-crawler
 ```
 
 ---
 
-## 🔄 코드 업데이트 워크플로우
+## 코드 업데이트 워크플로우
 
 ```bash
 # 로컬에서 코드 수정 후
@@ -92,47 +118,36 @@ git add .
 git commit -m "수정 내용"
 git push
 
-# 서버에서
-cd ~/crawler
-git pull
+# 서버 배포 (크롤러_관리.bat의 6번 메뉴 또는 수동)
+ssh -i "키파일" ubuntu@158.179.162.168 "cd /home/ubuntu/jobkorea_crawler && git pull && sudo systemctl restart jobkorea-crawler"
 ```
 
 ---
 
-## 🔐 보안 주의사항
+## 보안 주의사항
 
-`.env`, `*.json`, `*.pkl` 파일은 절대 GitHub에 올리지 마세요.  
+`.env`, `*.json`, `*.pkl` 파일은 절대 GitHub에 올리지 마세요.
 `.gitignore`에 등록되어 있으나 실수로 `git add .` 했다면:
 
 ```bash
 git rm --cached .env
 git rm --cached google_credentials.json
-git rm --cached jobkorea_cookies.pkl
 ```
 
-# 🛠️ 서버 환경 최적화 및 패키지 업데이트 내역
+---
 
-본 프로젝트는 로컬(Windows) 환경에서 개발되었으나, 오라클 클라우드(Ubuntu 20.04, Python 3.8) 서버에서 안정적으로 가동하기 위해 다음과 같은 기술적 수정 과정을 거쳤습니다.
+## 작업 이력
 
-## 1. 파이썬 버전 호환성 확보 (Python 3.8 대응)
-서버의 기본 파이썬 버전(3.8)이 최신 문법을 지원하지 않아 발생하는 `TypeError`를 해결하였습니다.
-* **마법의 주문 추가**: 모든 실행 파일(`driver.py`, `scraper.py`, `google_services.py` 등) 최상단에 `from __future__ import annotations`를 추가하여 최신 타입 힌트 문법을 허용하였습니다.
-* **타입 힌트 수정**: Python 3.10+의 `|` 문법(Union) 대신 구버전 호환용 `typing.Optional`, `typing.Tuple`, `typing.List` 등을 사용하여 코드의 안정성을 높였습니다.
+### 2026-03-18: 2FA 자동 인증 + 상시 스케줄러 구현
+- 쿠키 기반 로그인 방식 완전 제거 (save_cookies.py 삭제)
+- ID/PW 로그인 + 2FA 자동 인증 구현 (Google Sheets OTP 폴링)
+- 잡코리아 2FA 페이지 실제 셀렉터 적용 (UserName, UserEmail, certNumCorpDomain 등)
+- main.py를 1회성 Cron에서 상시 실행 스케줄러로 전환 (워킹타임 8~18시, 10분 간격)
+- systemd 서비스 파일 + Windows 원클릭 배포/관리 .bat 스크립트 추가
+- 서버 타임존 Asia/Seoul 설정, PYTHONUNBUFFERED=1 적용
 
-## 2. 원격 디버깅 시스템 구축 (Headless 환경 대응)
-서버는 화면이 없는(Headless) 환경이므로, 에러 발생 시 상황 파악이 어렵다는 점을 개선하였습니다.
-* **디버깅 유틸 신설**: `utils_debug.py`를 추가하여 에러 발생 시 현재 브라우저의 스크린샷(`.png`)과 HTML 소스(`.html`)를 자동으로 저장하는 기능을 구현하였습니다.
-* **에러 추적 강화**: 크롤러가 페이지 번호를 찾지 못하는 등 예상치 못한 상황 발생 시 즉시 `save_debug_snapshot`을 호출하여 `temp_files` 폴더에 현장 증거를 남기도록 설계하였습니다.
-
-## 3. 로그인 인증 및 권한 검증 고도화
-단순히 쿠키를 주입하는 것에서 나아가, 실제 서비스 페이지에 접근 가능한지 확인하는 로직을 강화하였습니다.
-* **권한 검증 로직**: `driver.py`의 `login_with_cookie` 함수를 수정하여 쿠키 주입 후 즉시 후보자 목록 페이지(`ACCEPT_URL`)로 이동해보고, 로그인 창으로 튕기는지 여부를 체크하여 최종 권한 획득 성공을 판단하도록 개선하였습니다.
-* **대기 시간 최적화**: 서버의 네트워크 속도와 렌더링 시간을 고려하여 `time.sleep` 대기 시간을 넉넉하게 조정(3~5초)하였습니다.
-
-## 4. 서버 시스템 종속성 해결 (Linux 특화)
-서버 인프라 구축 시 발생한 환경적 이슈들을 해결하였습니다.
-* **OpenSSL 라이브러리 충돌**: Ubuntu 20.04의 구형 보안 패키지와 최신 파이썬 라이브러리 충돌 건을 `sudo apt-get remove python3-openssl` 및 `pyOpenSSL` 강제 업데이트를 통해 해결하였습니다.
-* **Tesseract 경로 설정**: `config.py`를 통해 윈도우와 리눅스 환경의 Tesseract 실행 경로를 환경 변수로 분리 관리하도록 세팅하였습니다.
-
-## 5. 쿠키 저장 방식 개선 (수동 안전 모드)
-잡코리아의 강력한 보안(2단계 인증 등)을 우회하기 위해 로컬 PC 전용 `save_cookies.py`를 수동 모드로 전환하여, 사람이 직접 인증을 완료한 후의 완벽한 세션 쿠키를 획득할 수 있도록 변경하였습니다.
+### 미완료 작업 (다음 세션에서 이어서)
+- [ ] 변경사항 GitHub에 push (커밋은 완료, push 대기 중)
+- [ ] 서버에 새 코드 배포 (git pull + systemctl restart)
+- [ ] 2FA 자동 인증 end-to-end 테스트 (서버에서 실제 동작 확인)
+- [ ] 서버 크롤러 서비스 현재 중지 상태 — 배포 후 재시작 필요
