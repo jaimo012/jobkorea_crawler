@@ -1,0 +1,23 @@
+# 환경 변수 / 시크릿
+.env
+google_credentials.json
+
+# 쿠키
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 임시 파일
+temp_files/
+*.html
+*.png
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code
+.claude/

@@ -29,3 +29,20 @@ class Config:
 
     # ── 임시 파일 저장 경로 ───────────────────────
     TEMP_DIR = 'temp_files'
+
+    # ── OTP 인증 (Google Sheets 경유) ────────────
+    # GAS가 지메일에서 인증코드를 자동 수집하는 시트
+    OTP_SHEET_URL       = os.getenv(
+        'OTP_SHEET_URL',
+        'https://docs.google.com/spreadsheets/d/1orsOtn-9czDxCcs6CbVJ0tjPfYDMUsg3iDyu2XBvDGU'
+    )
+    OTP_SHEET_NAME      = os.getenv('OTP_SHEET_NAME', '2차인증')
+    # 컬럼: 수신일시 | 메시지ID | 인증코드
+    OTP_POLL_INTERVAL   = int(os.getenv('OTP_POLL_INTERVAL', '10'))      # 초
+    OTP_TIMEOUT         = int(os.getenv('OTP_TIMEOUT', '300'))           # 5분
+
+    # ── 스케줄러 설정 ───────────────────────────────
+    CRAWL_INTERVAL_MIN  = int(os.getenv('CRAWL_INTERVAL_MIN', '10'))     # 분
+    WORK_START_HOUR     = int(os.getenv('WORK_START_HOUR', '8'))         # 오전 8시
+    WORK_END_HOUR       = int(os.getenv('WORK_END_HOUR', '18'))          # 오후 6시
+    BROWSER_RESTART_HOUR = int(os.getenv('BROWSER_RESTART_HOUR', '8'))   # 매일 재시작 시각
