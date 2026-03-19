@@ -436,6 +436,8 @@ def _submit_otp(driver: webdriver.Chrome, otp_code: str) -> bool:
         - button#btnCorpDomainCheckCert : 인증 버튼
     """
     try:
+        from utils_debug import save_debug_snapshot
+
         otp_input = driver.find_element(By.ID, "certNumCorpDomain")
         otp_input.clear()
         otp_input.send_keys(otp_code)
@@ -443,14 +445,28 @@ def _submit_otp(driver: webdriver.Chrome, otp_code: str) -> bool:
         print(f"[2FA] 인증코드 입력 완료: {otp_code}")
 
         submit_btn = driver.find_element(By.ID, "btnCorpDomainCheckCert")
-        submit_btn.click()
+        driver.execute_script("arguments[0].click();", submit_btn)
         print("[2FA] 인증 버튼 클릭 완료")
-        time.sleep(3)
+        time.sleep(2)
+
+        # alert 팝업 처리 (성공/실패 알림)
+        try:
+            alert = driver.switch_to.alert
+            alert_text = alert.text
+            print(f"[2FA] 인증 결과 Alert: {alert_text}")
+            alert.accept()
+            time.sleep(2)
+        except Exception:
+            pass
 
         url = driver.current_url.lower()
+        print(f"[2FA] 인증 후 URL: {url}")
+
         if "login" not in url and "twofactorauth" not in url:
             return True
 
+        # 디버그 스크린샷 저장
+        save_debug_snapshot(driver, "2fa_after_otp_submit")
         print("[2FA] ❌ 인증코드 입력 후에도 인증 페이지에 남아있습니다.")
         return False
 
