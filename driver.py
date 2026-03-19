@@ -315,10 +315,17 @@ def _fill_2fa_identity(driver: webdriver.Chrome) -> bool:
         # JavaScript로 클릭 (네이티브 클릭보다 안정적)
         driver.execute_script("arguments[0].click();", send_btn)
         print("[2FA] 인증번호 발송 버튼 클릭 완료")
-        time.sleep(3)
+        time.sleep(2)
 
-        # 발송 후 스크린샷 저장 (디버깅용)
-        save_debug_snapshot(driver, "2fa_after_send")
+        # alert 팝업 처리 ("인증번호가 전송됐습니다." 등)
+        try:
+            alert = driver.switch_to.alert
+            alert_text = alert.text
+            print(f"[2FA] Alert 수락: {alert_text}")
+            alert.accept()
+            time.sleep(1)
+        except Exception:
+            pass  # alert가 없으면 무시
 
         return True
 
