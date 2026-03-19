@@ -54,6 +54,7 @@ def setup_chrome_driver(headless: bool = True) -> webdriver.Chrome:
     service = Service(ChromeDriverManager().install())
     driver  = webdriver.Chrome(service=service, options=options)
     driver.implicitly_wait(10)
+    driver.set_page_load_timeout(60)
 
     print("[드라이버] 크롬 브라우저 준비 완료")
     return driver
@@ -67,7 +68,10 @@ def is_logged_in(driver: webdriver.Chrome) -> bool:
     """실제 권한이 필요한 페이지로 이동하여 로그인 상태를 확인합니다."""
     try:
         test_url = Config.ACCEPT_URL.replace("PAGE_NUM", "1")
-        driver.get(test_url)
+        try:
+            driver.get(test_url)
+        except Exception:
+            pass  # 타임아웃이 발생해도 URL은 확인 가능
         time.sleep(3)
         url = driver.current_url.lower()
         return "login" not in url and "twofactorauth" not in url
@@ -108,8 +112,11 @@ def _login_with_credentials(driver: webdriver.Chrome) -> bool:
     """
     ID/PW로 로그인 후, 2FA가 나타나면 Google Sheets를 통해 자동 인증합니다.
     """
-    driver.get(Config.LOGIN_URL)
-    time.sleep(random.uniform(1.0, 1.5))
+    try:
+        driver.get(Config.LOGIN_URL)
+    except Exception:
+        pass  # 타임아웃이 발생해도 페이지는 로드됨
+    time.sleep(random.uniform(2.0, 3.0))
 
     # 기업회원 탭 클릭
     try:
@@ -131,10 +138,10 @@ def _login_with_credentials(driver: webdriver.Chrome) -> bool:
     tag_pw.send_keys(Config.USER_PW)
     time.sleep(random.uniform(0.3, 0.5))
 
-    # 로그인 버튼 클릭
+    # 로그인 버튼 클릭 (JavaScript로 실행하여 타임아웃 방지)
     login_btn = driver.find_element(By.CLASS_NAME, "login-button")
-    login_btn.click()
-    time.sleep(3)
+    driver.execute_script("arguments[0].click();", login_btn)
+    time.sleep(5)
 
     # ── 2FA 페이지 감지 ──────────────────────────
     if _is_2fa_page(driver):
