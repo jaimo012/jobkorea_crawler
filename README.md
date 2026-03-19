@@ -145,7 +145,16 @@ git rm --cached google_credentials.json
 
 ---
 
-## 작업 이력
+## 작업 로그
+
+### 2026-03-19 (2차): CONTEXT.md 작성 + 작업 임시 중단
+- **CONTEXT.md 생성**: AI 에이전트용 프로젝트 컨텍스트 파일 작성 (아키텍처, 2FA 흐름, 서버 환경, 코딩 규칙 등)
+- 변경 파일: `CONTEXT.md` (신규), `README.md` (작업 로그 업데이트)
+- **다음 작업 예정**:
+  - OCR 정확도 검증 및 개선
+  - GAS 트리거 설정 확인 (매 1분 실행)
+  - google_services.py 타입힌트 수정 (`Tuple`, `Optional` import 누락)
+  - 전체 end-to-end 테스트 후 서버 재배포
 
 ### 2026-03-19: 2FA 자동 인증 완성 + 서버 배포 성공
 - 2FA 자동 인증 end-to-end 성공 (이메일 발송 → GAS 수집 → OTP 입력 → 인증 완료)
