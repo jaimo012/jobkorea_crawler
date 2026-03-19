@@ -267,39 +267,58 @@ def _fill_2fa_identity(driver: webdriver.Chrome) -> bool:
         - button#btnSendCertCorpDomain : 인증번호 발송 (이름/이메일 입력 후 enabled)
     """
     try:
+        from utils_debug import save_debug_snapshot
+
         print(f"[2FA] 이름({Config.AUTH_NAME}) / 이메일({Config.AUTH_EMAIL}) 입력 중...")
 
-        # 이름 입력
+        # 이름 입력 + input/change 이벤트 트리거
         name_input = driver.find_element(By.ID, "UserName")
         name_input.clear()
         name_input.send_keys(Config.AUTH_NAME)
+        driver.execute_script(
+            "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+            name_input,
+        )
         time.sleep(0.5)
         print("[2FA] 이름 입력 완료")
 
-        # 이메일 입력 (아이디 부분만 — 도메인은 corpDomain hidden 필드에 자동 세팅)
+        # 이메일 입력 (아이디 부분만) + input/change 이벤트 트리거
         email_id = Config.AUTH_EMAIL.split("@")[0]  # alpha@kmong.com → alpha
         email_input = driver.find_element(By.ID, "UserEmail")
         email_input.clear()
         email_input.send_keys(email_id)
+        driver.execute_script(
+            "arguments[0].dispatchEvent(new Event('input', {bubbles:true}));"
+            "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));",
+            email_input,
+        )
         time.sleep(0.5)
         print(f"[2FA] 이메일 아이디 입력 완료: {email_id}")
 
-        # disabled 해제 대기 후 인증번호 발송 버튼 클릭
+        # 발송 버튼 대기 + 클릭
         time.sleep(1)
         send_btn = driver.find_element(By.ID, "btnSendCertCorpDomain")
 
-        # disabled 속성 제거를 위해 JavaScript로 클릭
-        if send_btn.get_attribute("disabled"):
-            print("[2FA] 발송 버튼이 비활성화 상태 — JavaScript로 활성화 시도...")
+        btn_disabled = send_btn.get_attribute("disabled")
+        btn_class = send_btn.get_attribute("class")
+        print(f"[2FA] 발송 버튼 상태: disabled={btn_disabled}, class={btn_class}")
+
+        if btn_disabled:
+            print("[2FA] 발송 버튼 비활성화 — JS로 활성화 시도...")
             driver.execute_script(
                 "arguments[0].disabled = false; arguments[0].classList.remove('disabled');",
                 send_btn,
             )
             time.sleep(0.5)
 
-        send_btn.click()
+        # JavaScript로 클릭 (네이티브 클릭보다 안정적)
+        driver.execute_script("arguments[0].click();", send_btn)
         print("[2FA] 인증번호 발송 버튼 클릭 완료")
         time.sleep(3)
+
+        # 발송 후 스크린샷 저장 (디버깅용)
+        save_debug_snapshot(driver, "2fa_after_send")
 
         return True
 
