@@ -150,17 +150,36 @@ def _login_with_credentials(driver: webdriver.Chrome) -> bool:
     driver.execute_script("arguments[0].click();", login_btn)
     time.sleep(5)
 
-    # ── 2FA 페이지 감지 ──────────────────────────
+    # 로그인 직후 URL 확인
+    url = driver.current_url.lower()
+    if "login" in url:
+        print("[로그인] ❌ ID/PW 로그인 실패 — 아이디/비밀번호를 확인하세요.")
+        return False
+
+    # ── 로그인 직후 2FA 감지 ──────────────────────
     if _is_2fa_page(driver):
         print("[2FA] 2단계 인증이 필요합니다. Google Sheets에서 인증코드를 가져옵니다...")
         return _handle_2fa(driver)
 
-    # 2FA 없이 바로 로그인 성공
+    # ── 보호된 페이지로 이동하여 2FA 추가 감지 ─────
+    # (잡코리아는 로그인 직후가 아닌 보호된 페이지 접근 시 2FA를 요구하는 경우가 있음)
+    print("[로그인] ID/PW 로그인 성공 — 보호 페이지 접근 테스트...")
+    test_url = Config.ACCEPT_URL.replace("PAGE_NUM", "1")
+    try:
+        driver.get(test_url)
+    except Exception:
+        pass
+    time.sleep(3)
+
     url = driver.current_url.lower()
+    if _is_2fa_page(driver) or "twofactorauth" in url:
+        print("[2FA] 보호 페이지 접근 시 2단계 인증 감지! Google Sheets에서 인증코드를 가져옵니다...")
+        return _handle_2fa(driver)
+
     if "login" not in url and "twofactorauth" not in url:
         return True
 
-    print("[로그인] ❌ ID/PW 로그인 실패 — 아이디/비밀번호를 확인하세요.")
+    print("[로그인] ❌ 로그인 후에도 접근 불가 — 알 수 없는 상태입니다.")
     return False
 
 
