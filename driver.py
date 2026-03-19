@@ -61,7 +61,7 @@ def setup_chrome_driver(headless: bool = True) -> webdriver.Chrome:
     service = Service(ChromeDriverManager().install())
     driver  = webdriver.Chrome(service=service, options=options)
     driver.implicitly_wait(10)
-    driver.set_page_load_timeout(60)
+    driver.set_page_load_timeout(120)
 
     print("[드라이버] 크롬 브라우저 준비 완료")
     return driver
