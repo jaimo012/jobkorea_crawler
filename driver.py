@@ -354,9 +354,17 @@ def _poll_otp_from_sheet(otp_ws, login_time: datetime.datetime) -> str:
 
         try:
             all_rows = otp_ws.get_all_values()
+            data_rows = all_rows[1:]  # 헤더 제외
 
-            # 헤더 제외, 뒤에서부터 탐색 (최신 행 우선)
-            for row in reversed(all_rows[1:]):
+            if elapsed <= Config.OTP_POLL_INTERVAL:
+                # 첫 폴링 시 시트 상태 출력
+                print(f"[2FA] 시트 행 수: {len(data_rows)} (login_time: {login_time.strftime('%Y-%m-%d %H:%M:%S')})")
+                if data_rows:
+                    last_row = data_rows[-1]
+                    print(f"[2FA] 마지막 행: {last_row}")
+
+            # 뒤에서부터 탐색 (최신 행 우선)
+            for row in reversed(data_rows):
                 if len(row) < 3:
                     continue
 
@@ -376,6 +384,7 @@ def _poll_otp_from_sheet(otp_ws, login_time: datetime.datetime) -> str:
                         continue
 
                 if recv_time is None:
+                    print(f"[2FA] 날짜 파싱 실패: '{recv_time_str}'")
                     continue
 
                 # 로그인 시점 이후의 인증코드만 사용
