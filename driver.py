@@ -276,12 +276,13 @@ def _fill_2fa_identity(driver: webdriver.Chrome) -> bool:
         time.sleep(0.5)
         print("[2FA] 이름 입력 완료")
 
-        # 이메일 입력
+        # 이메일 입력 (아이디 부분만 — 도메인은 corpDomain hidden 필드에 자동 세팅)
+        email_id = Config.AUTH_EMAIL.split("@")[0]  # alpha@kmong.com → alpha
         email_input = driver.find_element(By.ID, "UserEmail")
         email_input.clear()
-        email_input.send_keys(Config.AUTH_EMAIL)
+        email_input.send_keys(email_id)
         time.sleep(0.5)
-        print("[2FA] 이메일 입력 완료")
+        print(f"[2FA] 이메일 아이디 입력 완료: {email_id}")
 
         # disabled 해제 대기 후 인증번호 발송 버튼 클릭
         time.sleep(1)
