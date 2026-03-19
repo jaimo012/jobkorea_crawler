@@ -225,13 +225,13 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
         3. 로그인 시점 이후에 수신된 마지막 인증코드를 가져옴
         4. 인증코드를 페이지에 입력하고 인증 완료
     """
+    # 인증코드 발송 시점 기록 (발송 버튼 클릭 전에 기록 — 메일 수신시각과의 오차 방지)
+    login_time = datetime.datetime.now() - datetime.timedelta(seconds=30)
+
     # ── Step 1. 이름/이메일 입력 + 인증코드 발송 요청 ──
     if not _fill_2fa_identity(driver):
         print("[2FA] ❌ 이름/이메일 입력 또는 인증코드 발송 요청 실패")
         return False
-
-    # 인증코드 발송 시점 기록 (이메일 발송 직후)
-    login_time = datetime.datetime.now()
     print(f"[2FA] 인증코드 발송 요청 완료 — 발송 시점: {login_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"[2FA] GAS가 지메일에서 인증코드를 수집할 때까지 대기합니다... (제한시간: {Config.OTP_TIMEOUT}초)")
 
