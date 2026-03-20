@@ -147,6 +147,19 @@ git rm --cached google_credentials.json
 
 ## 작업 로그
 
+### 2026-03-20: OCR 오류 수정 + 전체 파이프라인 정상 작동 확인
+- **근본 원인**: 서버 `.env`에 Windows Tesseract 경로(`C:\Program Files\Tesseract-OCR\tesseract.exe`)가 설정되어 Linux 서버에서 OCR 전체 실패
+- **수정**: 서버 `.env`의 `TESSERACT_CMD=/usr/bin/tesseract`로 변경
+- **OCR 품질 개선**: 2배→3배 업스케일, 그레이스케일 변환, 샤프닝, PSM 7(한 줄 텍스트), 문자 whitelist 적용
+- **OCR 디버깅 강화**: 원본/전처리 이미지 자동 저장, 후보자명/필드명 포함 상세 로그
+- **google_services.py**: `Tuple`, `Optional` import 누락 수정
+- **전체 파이프라인 정상 작동 확인**: 로그인 → 목록 수집 → 시트 적재 → OCR(연락처/이메일) → PDF → 제안정보
+- 변경 파일: `ocr.py`, `scraper.py`, `google_services.py`, `README.md`
+- **다음 작업 예정**:
+  - `claude/festive-shamir` 브랜치를 `main`에 머지
+  - OCR 디버그 이미지 자동 정리 (디스크 용량 관리)
+  - GAS 트리거 설정 확인 (매 1분 실행)
+
 ### 2026-03-19 (2차): CONTEXT.md 작성 + 작업 임시 중단
 - **CONTEXT.md 생성**: AI 에이전트용 프로젝트 컨텍스트 파일 작성 (아키텍처, 2FA 흐름, 서버 환경, 코딩 규칙 등)
 - 변경 파일: `CONTEXT.md` (신규), `README.md` (작업 로그 업데이트)
