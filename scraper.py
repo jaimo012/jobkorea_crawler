@@ -171,6 +171,12 @@ def extract_resume_details(
                 elif label == "Email":
                     email = extract_text_from_base64(b64_src, label=f"{candidate_name}_Email")
 
+    # 이메일이 비공개이면 전화번호도 비공개 처리
+    # (문자 발송 시 "이메일 확인" 안내이므로, 이메일 비공개 시 문자도 보내면 안 됨)
+    if email == "비공개":
+        phone = "비공개"
+        print(f"[이력서] [{candidate_name}] 이메일 비공개 → 전화번호도 비공개 처리")
+
     # ── 2. 포트폴리오 링크 추출 ─────────────────
     portfolio_links = extract_portfolio_links(soup)
 
