@@ -5,6 +5,7 @@ Google Sheets 읽기/쓰기 및 Google Drive 파일 업로드를 담당합니다
 
 from __future__ import annotations
 import time
+from typing import Optional, Tuple
 
 import gspread
 import pandas as pd
@@ -32,7 +33,7 @@ def _get_credentials() -> Credentials:
 def open_google_sheet(
     spreadsheet_url: str = Config.TARGET_URL,
     sheet_name: str      = Config.SHEET_NAME,
-) -> Tuple[Optional[gspread.Worksheet], Optional[pd.DataFrame]]: # 문법 수정
+) -> Tuple[Optional[gspread.Worksheet], Optional[pd.DataFrame]]:
     """
     구글 시트에 연결하고 (worksheet, DataFrame) 튜플을 반환합니다.
     실패 시 (None, None) 반환.

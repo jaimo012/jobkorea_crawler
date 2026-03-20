@@ -165,10 +165,11 @@ def extract_resume_details(
 
             if img_tag and "src" in img_tag.attrs:
                 b64_src = img_tag["src"]
+                print(f"[이력서] [{candidate_name}] {label} 이미지 발견 (길이: {len(b64_src)})")
                 if label == "휴대폰":
-                    phone = extract_text_from_base64(b64_src)
+                    phone = extract_text_from_base64(b64_src, label=f"{candidate_name}_휴대폰")
                 elif label == "Email":
-                    email = extract_text_from_base64(b64_src)
+                    email = extract_text_from_base64(b64_src, label=f"{candidate_name}_Email")
 
     # ── 2. 포트폴리오 링크 추출 ─────────────────
     portfolio_links = extract_portfolio_links(soup)
