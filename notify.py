@@ -57,14 +57,6 @@ def notify_crawler_stopped(reason: str = "정상 종료") -> None:
 
 # ── 크롤링 사이클 알림 ─────────────────────────────
 
-def notify_cycle_complete(total: int, new: int, updated: int, elapsed: float) -> None:
-    _send_slack(
-        f":arrows_counterclockwise: *크롤링 사이클 완료*\n"
-        f"시각: {_now_str()} | 소요: {elapsed:.0f}초\n"
-        f"총 후보자: {total}명 | 신규: {new}명 | 상세 업데이트: {updated}명"
-    )
-
-
 def notify_cycle_error(error: Exception) -> None:
     tb = traceback.format_exception(type(error), error, error.__traceback__)
     tb_short = "".join(tb[-3:])[:500]
@@ -82,14 +74,6 @@ def notify_login_success() -> None:
     _send_slack(
         f":key: *로그인 성공*\n"
         f"시각: {_now_str()}"
-    )
-
-
-def notify_2fa_started() -> None:
-    _send_slack(
-        f"<@alpha> :lock: *2FA 인증 시작*\n"
-        f"시각: {_now_str()}\n"
-        f"GAS가 인증코드를 수집할 때까지 대기 중... (최대 {Config.OTP_TIMEOUT}초)"
     )
 
 

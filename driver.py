@@ -24,7 +24,7 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 from config import Config
-from notify import notify_login_success, notify_2fa_started, notify_2fa_success, notify_2fa_failed
+from notify import notify_login_success, notify_2fa_success, notify_2fa_failed
 
 
 # ──────────────────────────────────────────────
@@ -227,8 +227,6 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
         3. 로그인 시점 이후에 수신된 마지막 인증코드를 가져옴
         4. 인증코드를 페이지에 입력하고 인증 완료
     """
-    notify_2fa_started()
-
     # 인증코드 발송 시점 기록 (발송 버튼 클릭 전에 기록 — 메일 수신시각과의 오차 방지)
     login_time = datetime.datetime.now() - datetime.timedelta(seconds=30)
 

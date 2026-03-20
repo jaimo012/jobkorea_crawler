@@ -21,7 +21,7 @@ from config import Config
 from driver import setup_chrome_driver, ensure_login, is_logged_in
 from notify import (
     notify_crawler_started, notify_crawler_stopped,
-    notify_cycle_complete, notify_cycle_error,
+    notify_cycle_error,
     notify_browser_restart, notify_browser_crash,
 )
 from pipeline import process_and_upload_candidates, update_empty_resumes_in_sheet
@@ -115,7 +115,6 @@ def _run_crawl_cycle() -> None:
 
         elapsed = (_now() - cycle_start).total_seconds()
         print(f"\n[스케줄러] 사이클 완료 (소요: {elapsed:.0f}초)")
-        notify_cycle_complete(new_count, new_count, updated_count, elapsed)
 
     except Exception as e:
         print(f"[스케줄러] ❌ 사이클 중 오류: {e}")
