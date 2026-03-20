@@ -89,7 +89,8 @@ def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> int:
     required_cols = [
         "이름", "이력서URL", "휴대전화번호", "이메일",
         "첨부파일1", "첨부파일2", "첨부파일3",
-        "제안URL", "제안포지션", "제안일자", "이력서파일URL",
+        "제안URL", "제안포지션", "제안일자", "수행업무", "우대사항",
+        "이력서파일URL",
     ]
     try:
         col_idx = {col: headers.index(col) + 1 for col in required_cols}
@@ -119,11 +120,9 @@ def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> int:
             details = extract_resume_details(driver, resume_url, name)
 
             # 제안 상세 정보 수집
-            offer_pos, offer_date = "", ""
+            offer = {"제안포지션": "", "제안일자": "", "수행업무": "", "우대사항": ""}
             if details["제안URL"]:
                 offer = extract_offer_details(driver, details["제안URL"])
-                offer_pos  = offer["제안포지션"]
-                offer_date = offer["제안일자"]
 
             # 셀 일괄 업데이트
             cells_to_update = [
@@ -133,8 +132,10 @@ def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> int:
                 gspread.Cell(row=i, col=col_idx["첨부파일2"],    value=details["첨부파일2"]),
                 gspread.Cell(row=i, col=col_idx["첨부파일3"],    value=details["첨부파일3"]),
                 gspread.Cell(row=i, col=col_idx["제안URL"],      value=details["제안URL"]),
-                gspread.Cell(row=i, col=col_idx["제안포지션"],   value=offer_pos),
-                gspread.Cell(row=i, col=col_idx["제안일자"],     value=offer_date),
+                gspread.Cell(row=i, col=col_idx["제안포지션"],   value=offer["제안포지션"]),
+                gspread.Cell(row=i, col=col_idx["제안일자"],     value=offer["제안일자"]),
+                gspread.Cell(row=i, col=col_idx["수행업무"],     value=offer["수행업무"]),
+                gspread.Cell(row=i, col=col_idx["우대사항"],     value=offer["우대사항"]),
                 gspread.Cell(row=i, col=col_idx["이력서파일URL"], value=details["이력서파일URL"]),
             ]
             batch_update_cells(worksheet, cells_to_update)

@@ -218,27 +218,27 @@ def extract_offer_details(
     offer_url: str,
 ) -> dict:
     """
-    제안 상세 URL에서 포지션명과 발송일(yyyy-mm-dd)을 추출합니다.
+    제안 상세 URL에서 포지션명, 발송일, 수행업무, 우대사항을 추출합니다.
 
     Returns:
-        {제안포지션, 제안일자}
+        {제안포지션, 제안일자, 수행업무, 우대사항}
     """
+    result = {"제안포지션": "", "제안일자": "", "수행업무": "", "우대사항": ""}
+
     if not offer_url:
-        return {"제안포지션": "", "제안일자": ""}
+        return result
 
     print("[제안] 🌐 제안 상세 페이지 정보 추출 중...")
     driver.get(offer_url)
     time.sleep(random.uniform(1.5, 2.5))
 
-    soup          = BeautifulSoup(driver.page_source, "html.parser")
-    position_name = ""
-    send_date     = ""
+    soup = BeautifulSoup(driver.page_source, "html.parser")
 
     try:
         # 포지션명
         title_tag = soup.find("p", class_="plea-send-title-sub")
         if title_tag:
-            position_name = title_tag.text.strip()
+            result["제안포지션"] = title_tag.text.strip()
 
         # 발송일 (예: "2026년 03월 12일 오후 2:18" → "2026-03-12")
         day_dl = soup.find("dl", class_="plea-send-txt-day")
@@ -246,18 +246,32 @@ def extract_offer_details(
             dd_tag = day_dl.find("dd")
             if dd_tag:
                 raw_date = dd_tag.text.strip()
-                match    = re.search(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", raw_date)
+                match = re.search(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", raw_date)
                 if match:
-                    send_date = (
+                    result["제안일자"] = (
                         f"{match.group(1)}-"
                         f"{match.group(2).zfill(2)}-"
                         f"{match.group(3).zfill(2)}"
                     )
 
+        # 수행업무 / 우대사항
+        info_div = soup.find("div", class_="plea-send-txt-info preLine")
+        if info_div:
+            for dl in info_div.find_all("dl"):
+                dt = dl.find("dt")
+                dd = dl.find("dd")
+                if dt and dd:
+                    label = dt.text.strip()
+                    value = dd.get_text(separator="\n").strip()
+                    if "수행업무" in label:
+                        result["수행업무"] = value
+                    elif "우대사항" in label:
+                        result["우대사항"] = value
+
     except Exception as e:
         print(f"[제안] ❌ 추출 실패: {e}")
 
-    return {"제안포지션": position_name, "제안일자": send_date}
+    return result
 
 
 # ──────────────────────────────────────────────
