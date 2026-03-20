@@ -24,6 +24,7 @@ from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 from config import Config
+from notify import notify_login_success, notify_2fa_started, notify_2fa_success, notify_2fa_failed
 
 
 # ──────────────────────────────────────────────
@@ -106,6 +107,7 @@ def ensure_login(driver: webdriver.Chrome) -> webdriver.Chrome:
     print("[로그인] ID/PW 로그인을 시도합니다...")
     if _login_with_credentials(driver):
         print("[로그인] ✅ 로그인 성공!")
+        notify_login_success()
         return driver
 
     raise RuntimeError("[로그인] 로그인에 실패했습니다.")
@@ -225,12 +227,15 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
         3. 로그인 시점 이후에 수신된 마지막 인증코드를 가져옴
         4. 인증코드를 페이지에 입력하고 인증 완료
     """
+    notify_2fa_started()
+
     # 인증코드 발송 시점 기록 (발송 버튼 클릭 전에 기록 — 메일 수신시각과의 오차 방지)
     login_time = datetime.datetime.now() - datetime.timedelta(seconds=30)
 
     # ── Step 1. 이름/이메일 입력 + 인증코드 발송 요청 ──
     if not _fill_2fa_identity(driver):
         print("[2FA] ❌ 이름/이메일 입력 또는 인증코드 발송 요청 실패")
+        notify_2fa_failed("이름/이메일 입력 실패")
         return False
     print(f"[2FA] 인증코드 발송 요청 완료 — 발송 시점: {login_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"[2FA] GAS가 지메일에서 인증코드를 수집할 때까지 대기합니다... (제한시간: {Config.OTP_TIMEOUT}초)")
@@ -245,6 +250,7 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
 
     if not otp_code:
         print("[2FA] ❌ 인증코드 수신 시간이 초과되었습니다.")
+        notify_2fa_failed("인증코드 수신 타임아웃 (GAS 시트에서 코드를 찾지 못함)")
         return False
 
     print(f"[2FA] 인증코드 수신: {otp_code}")
@@ -254,6 +260,7 @@ def _handle_2fa(driver: webdriver.Chrome) -> bool:
         return False
 
     print("[2FA] ✅ 2단계 인증 완료!")
+    notify_2fa_success()
     return True
 
 

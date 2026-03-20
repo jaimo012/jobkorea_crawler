@@ -19,6 +19,11 @@ import traceback
 
 from config import Config
 from driver import setup_chrome_driver, ensure_login, is_logged_in
+from notify import (
+    notify_crawler_started, notify_crawler_stopped,
+    notify_cycle_complete, notify_cycle_error,
+    notify_browser_restart, notify_browser_crash,
+)
 from pipeline import process_and_upload_candidates, update_empty_resumes_in_sheet
 from scraper import scrape_all_accepted_candidates
 
@@ -38,7 +43,7 @@ def _now():
 # 브라우저 관리
 # ──────────────────────────────────────────────
 
-def _init_browser() -> None:
+def _init_browser(reason: str = "초기화") -> None:
     """브라우저를 (재)시작하고 로그인합니다."""
     global _driver, _last_browser_restart_date
 
@@ -69,7 +74,8 @@ def _ensure_browser_alive() -> None:
     # 일일 재시작
     if _should_restart_browser():
         print("[스케줄러] 일일 브라우저 재시작...")
-        _init_browser()
+        notify_browser_restart("일일 재시작")
+        _init_browser(reason="일일 재시작")
         return
 
     # 세션 유효성 확인
@@ -77,9 +83,10 @@ def _ensure_browser_alive() -> None:
         if not is_logged_in(_driver):
             print("[스케줄러] 로그인 세션 만료 — 재로그인 시도...")
             _driver = ensure_login(_driver)
-    except Exception:
+    except Exception as e:
         print("[스케줄러] 브라우저 연결 끊김 — 재시작...")
-        _init_browser()
+        notify_browser_crash(e)
+        _init_browser(reason="브라우저 크래시 복구")
 
 
 # ──────────────────────────────────────────────
@@ -100,17 +107,20 @@ def _run_crawl_cycle() -> None:
 
         # 후보자 목록 수집 + 시트 적재
         _driver, df_new = scrape_all_accepted_candidates(_driver)
+        new_count = len(df_new) if not df_new.empty else 0
         process_and_upload_candidates(df_new)
 
         # 상세 정보 업데이트
-        update_empty_resumes_in_sheet(_driver)
+        updated_count = update_empty_resumes_in_sheet(_driver)
 
         elapsed = (_now() - cycle_start).total_seconds()
         print(f"\n[스케줄러] 사이클 완료 (소요: {elapsed:.0f}초)")
+        notify_cycle_complete(new_count, new_count, updated_count, elapsed)
 
     except Exception as e:
         print(f"[스케줄러] ❌ 사이클 중 오류: {e}")
         traceback.print_exc()
+        notify_cycle_error(e)
         # 오류 발생 시 다음 사이클에서 브라우저 재시작을 유도
         try:
             if _driver:
@@ -152,6 +162,7 @@ def _graceful_shutdown(signum, frame):
     """Ctrl+C / SIGTERM 시 브라우저를 정리하고 종료합니다."""
     global _driver
     print("\n[스케줄러] 종료 신호 수신 — 정리 중...")
+    notify_crawler_stopped("종료 신호 수신 (SIGTERM/SIGINT)")
     if _driver:
         try:
             _driver.quit()
@@ -170,7 +181,9 @@ def main() -> None:
     print(f"[스케줄러] 잡코리아 크롤러 시작")
     print(f"  - 크롤링 간격 : {Config.CRAWL_INTERVAL_MIN}분")
     print(f"  - 워킹타임    : {Config.WORK_START_HOUR:02d}:00 ~ {Config.WORK_END_HOUR:02d}:00")
-    print(f"  - 브라우저 재시작: 매일 {Config.BROWSER_RESTART_HOUR:02d}:00\n")
+    print(f"  - 브라우저 재시작: 매일 {Config.BROWSER_RESTART_HOUR:02d}:00")
+    print(f"  - Slack 알림  : {'활성' if Config.SLACK_WEBHOOK_URL else '비활성'}\n")
+    notify_crawler_started()
 
     while True:
         # ── 워킹타임 외: 대기 ─────────────────────
@@ -201,10 +214,11 @@ def main() -> None:
         # ── 브라우저 초기화 (필요 시) ─────────────
         if _driver is None:
             try:
-                _init_browser()
+                _init_browser(reason="워킹타임 시작")
             except Exception as e:
                 print(f"[스케줄러] ❌ 브라우저 초기화 실패: {e}")
                 traceback.print_exc()
+                notify_browser_crash(e)
                 print("[스케줄러] 60초 후 재시도...")
                 time.sleep(60)
                 continue

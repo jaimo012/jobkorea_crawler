@@ -42,6 +42,9 @@ class Config:
     OTP_POLL_INTERVAL   = int(os.getenv('OTP_POLL_INTERVAL', '10'))      # 초
     OTP_TIMEOUT         = int(os.getenv('OTP_TIMEOUT', '300'))           # 5분
 
+    # ── Slack 알림 ────────────────────────────────────
+    SLACK_WEBHOOK_URL = os.getenv('SLACK_WEBHOOK_URL', '')
+
     # ── 스케줄러 설정 ───────────────────────────────
     CRAWL_INTERVAL_MIN  = int(os.getenv('CRAWL_INTERVAL_MIN', '10'))     # 분
     WORK_START_HOUR     = int(os.getenv('WORK_START_HOUR', '8'))         # 오전 8시

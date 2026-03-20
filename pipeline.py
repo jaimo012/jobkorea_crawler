@@ -65,7 +65,7 @@ def process_and_upload_candidates(df_new: pd.DataFrame) -> None:
 # 2. 상세 정보 업데이트 (연락처 미수집 행 대상)
 # ──────────────────────────────────────────────
 
-def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> None:
+def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> int:
     """
     Google Sheets에서 '휴대전화번호'가 비어있는 행을 찾아
     이력서 상세 정보(OCR·PDF·제안정보)를 수집하고 시트를 업데이트합니다.
@@ -76,12 +76,12 @@ def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> None:
 
     worksheet, _ = open_google_sheet()
     if not worksheet:
-        return
+        return 0
 
     all_values = worksheet.get_all_values()
     if len(all_values) < 2:
         print("[파이프라인] 시트에 데이터가 없습니다.")
-        return
+        return 0
 
     headers = all_values[0]
 
@@ -95,7 +95,7 @@ def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> None:
         col_idx = {col: headers.index(col) + 1 for col in required_cols}
     except ValueError as e:
         print(f"[파이프라인] ❌ 필수 컬럼 누락: {e}")
-        return
+        return 0
 
     update_count = 0
 
@@ -148,3 +148,4 @@ def update_empty_resumes_in_sheet(driver: webdriver.Chrome) -> None:
             continue
 
     print(f"\n[파이프라인] 🎉 완료 — 총 {update_count}명 업데이트")
+    return update_count
