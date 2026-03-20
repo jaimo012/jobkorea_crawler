@@ -147,6 +147,16 @@ git rm --cached google_credentials.json
 
 ## 작업 로그
 
+### 2026-03-20 (2차): Slack 웹훅 알림 기능 추가
+- **notify.py 신규 생성**: 크롤러 시작/종료, 사이클 완료/오류, 2FA 시작/성공/실패, 브라우저 재시작/크래시 알림
+- 모든 오류/주의 알림에 `<@alpha>` 멘션 포함
+- main.py, driver.py, pipeline.py에 알림 연동
+- config.py에 `SLACK_WEBHOOK_URL` 설정 추가
+- 변경 파일: `notify.py` (신규), `config.py`, `main.py`, `driver.py`, `pipeline.py`, `README.md`
+- **다음 작업 예정**:
+  - `claude/festive-shamir` 브랜치를 `main`에 머지
+  - OCR 디버그 이미지 자동 정리 (디스크 용량 관리)
+
 ### 2026-03-20: OCR 오류 수정 + 전체 파이프라인 정상 작동 확인
 - **근본 원인**: 서버 `.env`에 Windows Tesseract 경로(`C:\Program Files\Tesseract-OCR\tesseract.exe`)가 설정되어 Linux 서버에서 OCR 전체 실패
 - **수정**: 서버 `.env`의 `TESSERACT_CMD=/usr/bin/tesseract`로 변경
