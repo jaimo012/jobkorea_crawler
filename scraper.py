@@ -181,10 +181,28 @@ def extract_resume_details(
     portfolio_links = extract_portfolio_links(soup)
 
     # ── 3. 제안 수락 URL 추출 ───────────────────
-    accepted_link  = ""
-    history_detail = soup.find("div", class_="history-detail")
-    if history_detail and history_detail.get("data-href"):
-        accepted_link = "https://www.jobkorea.co.kr" + history_detail["data-href"]
+    accepted_link = ""
+    history_details = soup.find_all('div', class_='history-detail')
+    
+    def _parse_history_date(hd):
+        date_tags = hd.find_all('span', class_='date')
+        if not date_tags:
+            return datetime.datetime.min
+        try:
+            return datetime.datetime.strptime(date_tags[0].text.strip(), '%y.%m.%d %H:%M')
+        except ValueError:
+            return datetime.datetime.min
+    
+    accepted_items = [
+        hd for hd in history_details
+        if '수락' in hd.get('data-ga-action', '')
+    ]
+    
+    if accepted_items:
+        latest = max(accepted_items, key=_parse_history_date)
+        href = latest.get('data-href', '')
+        if href:
+            accepted_link = "https://www.jobkorea.co.kr" + href
 
     # ── 4. 이력서 PDF → Google Drive 업로드 ─────
     safe_phone  = phone.replace("-", "").replace(" ", "") if phone else "번호없음"
