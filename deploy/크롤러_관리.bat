@@ -5,11 +5,14 @@ title 잡코리아 크롤러 관리
 REM ──────────────────────────────────────────────
 REM  설정: 아래 값을 본인 환경에 맞게 수정하세요
 REM ──────────────────────────────────────────────
-set SSH_KEY=C:\Users\jaimo\OneDrive\Desktop\개발자원\오라클\ssh-key-2026-03-17.key
+set SSH_KEY=C:\Project\개발자원\오라클\ssh-key-2026-03-17.key
 set SERVER_USER=ubuntu
 set SERVER_IP=158.179.162.168
 set PROJECT_DIR=/home/ubuntu/jobkorea_crawler
 set SERVICE_NAME=jobkorea-crawler
+
+REM SSH 키 권한 자동 설정 (Windows 필수)
+icacls "%SSH_KEY%" /inheritance:r /grant:r "%USERNAME%:(R)" >nul 2>&1
 
 :MENU
 echo.
@@ -43,27 +46,27 @@ goto MENU
 :START
 echo.
 echo [크롤러 시작 중...]
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "sudo systemctl start %SERVICE_NAME% && echo '크롤러가 시작되었습니다!'"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "sudo systemctl start %SERVICE_NAME% && echo '크롤러가 시작되었습니다!'"
 pause
 goto MENU
 
 :STOP
 echo.
 echo [크롤러 중지 중...]
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "sudo systemctl stop %SERVICE_NAME% && echo '크롤러가 중지되었습니다.'"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "sudo systemctl stop %SERVICE_NAME% && echo '크롤러가 중지되었습니다.'"
 pause
 goto MENU
 
 :RESTART
 echo.
 echo [크롤러 재시작 중...]
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "sudo systemctl restart %SERVICE_NAME% && echo '크롤러가 재시작되었습니다!'"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "sudo systemctl restart %SERVICE_NAME% && echo '크롤러가 재시작되었습니다!'"
 pause
 goto MENU
 
 :STATUS
 echo.
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "sudo systemctl status %SERVICE_NAME% --no-pager; echo ''; echo '=== 최근 로그 10줄 ==='; tail -10 %PROJECT_DIR%/crawler.log 2>/dev/null || echo '로그 파일이 아직 없습니다.'"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "sudo systemctl status %SERVICE_NAME% --no-pager; echo ''; echo '=== 최근 로그 10줄 ==='; tail -10 %PROJECT_DIR%/crawler.log 2>/dev/null || echo '로그 파일이 아직 없습니다.'"
 pause
 goto MENU
 
@@ -71,20 +74,20 @@ goto MENU
 echo.
 echo [실시간 로그 - Ctrl+C로 종료]
 echo.
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "tail -f %PROJECT_DIR%/crawler.log"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "tail -f %PROJECT_DIR%/crawler.log"
 goto MENU
 
 :DEPLOY
 echo.
 echo [최신 코드 배포 + 재시작]
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "cd %PROJECT_DIR% && git pull origin main && pip3 install -r requirements.txt --quiet && sudo systemctl restart %SERVICE_NAME% && echo '' && echo '배포 완료! 크롤러가 재시작되었습니다.'"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "cd %PROJECT_DIR% && git pull origin main && pip3 install -r requirements.txt --quiet && sudo systemctl restart %SERVICE_NAME% && echo '' && echo '배포 완료! 크롤러가 재시작되었습니다.'"
 pause
 goto MENU
 
 :SETUP
 echo.
 echo [서비스 최초 등록 (1회만 실행)]
-ssh -i "%SSH_KEY%" %SERVER_USER%@%SERVER_IP% "cd %PROJECT_DIR% && bash deploy/setup_service.sh"
+ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no %SERVER_USER%@%SERVER_IP% "cd %PROJECT_DIR% && bash deploy/setup_service.sh"
 pause
 goto MENU
 
