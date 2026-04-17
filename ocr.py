@@ -19,6 +19,9 @@ from config import Config
 pytesseract.pytesseract.tesseract_cmd = Config.TESSERACT_CMD
 print(f"[OCR] Tesseract 경로: {Config.TESSERACT_CMD}")
 
+# 디버그 이미지 저장 여부 (DEBUG_OCR=1 로 활성화, 기본 비활성)
+_DEBUG_OCR: bool = os.getenv("DEBUG_OCR", "0") == "1"
+
 
 def extract_text_from_base64(base64_string: str, label: str = "") -> str:
     """
@@ -51,8 +54,9 @@ def extract_text_from_base64(base64_string: str, label: str = "") -> str:
         img = Image.open(BytesIO(image_bytes))
         print(f"[OCR] [{label}] 원본 이미지: {img.size}, mode={img.mode}")
 
-        # 디버그: 원본 이미지 저장
-        _save_debug_image(img, label, "original")
+        # 디버그: 원본 이미지 저장 (DEBUG_OCR=1 일 때만)
+        if _DEBUG_OCR:
+            _save_debug_image(img, label, "original")
 
         # 전처리: 그레이스케일 변환
         if img.mode != "L":
@@ -67,8 +71,9 @@ def extract_text_from_base64(base64_string: str, label: str = "") -> str:
         # 샤프닝 적용
         img = img.filter(ImageFilter.SHARPEN)
 
-        # 디버그: 전처리 후 이미지 저장
-        _save_debug_image(img, label, "processed")
+        # 디버그: 전처리 후 이미지 저장 (DEBUG_OCR=1 일 때만)
+        if _DEBUG_OCR:
+            _save_debug_image(img, label, "processed")
 
         # OCR 실행 (영문 모드, PSM 7 = 한 줄 텍스트)
         result = pytesseract.image_to_string(

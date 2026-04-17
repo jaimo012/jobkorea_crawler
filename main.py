@@ -12,6 +12,8 @@ main.py
 from __future__ import annotations
 
 import datetime
+import glob
+import os
 import signal
 import sys
 import time
@@ -33,6 +35,53 @@ from scraper import scrape_all_accepted_candidates
 # ──────────────────────────────────────────────
 _driver = None
 _last_browser_restart_date = None
+_last_cleanup_date = None
+
+
+# ──────────────────────────────────────────────
+# temp_files 자동 정리
+# ──────────────────────────────────────────────
+
+TEMP_RETAIN_DAYS: int = 3  # 최근 N일 파일만 보존
+
+
+def _cleanup_temp_files() -> None:
+    """
+    temp_files 디렉토리에서 TEMP_RETAIN_DAYS일 초과 파일을 삭제합니다.
+    크롤러 중단 없이 실행되도록 모든 예외를 내부에서 처리합니다.
+    """
+    global _last_cleanup_date
+
+    today = _now().date()
+    if _last_cleanup_date == today:
+        return  # 오늘 이미 실행됨
+
+    temp_dir = Config.TEMP_DIR
+    if not os.path.isdir(temp_dir):
+        _last_cleanup_date = today
+        return
+
+    cutoff = time.time() - TEMP_RETAIN_DAYS * 86400
+    removed_count = 0
+    removed_bytes = 0
+
+    try:
+        for file_path in glob.glob(os.path.join(temp_dir, "*")):
+            try:
+                if os.path.isfile(file_path) and os.path.getmtime(file_path) < cutoff:
+                    size = os.path.getsize(file_path)
+                    os.remove(file_path)
+                    removed_count += 1
+                    removed_bytes += size
+            except OSError:
+                pass  # 개별 파일 삭제 실패는 무시
+
+        removed_mb = removed_bytes / (1024 * 1024)
+        print(f"[정리] temp_files 정리 완료 — {removed_count}개 삭제 ({removed_mb:.1f}MB 회수)")
+        _last_cleanup_date = today
+
+    except Exception as e:
+        print(f"[정리] temp_files 정리 중 오류 (무시): {e}")
 
 
 def _now():
@@ -103,6 +152,7 @@ def _run_crawl_cycle() -> None:
     print(f"{'='*55}")
 
     try:
+        _cleanup_temp_files()
         _ensure_browser_alive()
 
         # 후보자 목록 수집 + 시트 적재
